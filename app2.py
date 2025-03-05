@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import requests
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
@@ -13,8 +14,13 @@ st.write("This app shows drug cases and predicts future cases using Machine Lear
 @st.cache_data
 def load_data():
     url = "https://www.data.gov.in/backend/dms/v1/ogdp/resource/download/603189971/json/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJkYXRhLmdvdi5pbiIsImF1ZCI6ImRhdGEuZ292LmluIiwiaWF0IjoxNzQxMDYzNTIyLCJleHAiOjE3NDEwNjM4MjIsImRhdGEiOnsibmlkIjoiNjAzMTg5OTcxIn19.ikJQgi0GtPlW6WBQs2WshuBHNG18w6Mk04KTY3Nrv0s"
-    df = pd.read_csv(url)
-    return df
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        if 'data' in data and isinstance(data['data'], list):
+            df = pd.DataFrame(data['data'])
+            return df
+    return pd.DataFrame()
 
 # Data Loading
 df = load_data()
