@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import pandas as pd
@@ -25,68 +24,65 @@ def load_data():
         return pd.DataFrame()
 
 def preprocess_data(df):
-    data2018 = df.iloc[:, 2:13].replace('-', np.nan).astype(float) # Replace '-' with NaN
-    data2019 = df.iloc[:, 13:24].replace('-', np.nan).astype(float) # Replace '-' with NaN
-    data2020 = df.iloc[:, 24:35].replace('-', np.nan).astype(float) # Replace '-' with NaN
-    data2021 = df.iloc[:, 35:45].replace('-', np.nan).astype(float) # Replace '-' with NaN
-    data2022 = df.iloc[:, 45:55].replace('-', np.nan).astype(float) # Replace '-' with NaN
-
+    # Replace hyphens or other non-numeric characters with NaN
+    df = df.replace('-', np.nan)  # Replace '-' with NaN
+    # You might need to replace other non-numeric characters as well
+    
+    data2018 = df.iloc[:, 2:13].astype(float)
+    data2019 = df.iloc[:, 13:24].astype(float)
+    data2020 = df.iloc[:, 24:35].astype(float)
+    data2021 = df.iloc[:, 35:45].astype(float)
+    data2022 = df.iloc[:, 45:55].astype(float)
+    
     all_years = pd.concat([data2018, data2019, data2020, data2021, data2022], axis=1)
-    all_years.fillna(0, inplace=True)
+    all_years.fillna(0, inplace=True)  # Fill NaN values with 0
     return all_years
-
-
-st.title("Drug Cases Predictor App")
+st.title("Drug Cases Prediction App")
 st.write("This app shows drug cases and predicts future cases using Machine Learning.")
 
 year = st.selectbox("Select Year to View Data", ["2018", "2019", "2020", "2021", "2022"])
+years_to_predict = st.slider("Select Future Years to Predict", 1, 10, 3)
 
+# Load Data
 df = load_data()
 
 if not df.empty:
     data = preprocess_data(df)
-
-    year_mapping = {
-        "2018": data.iloc[:, :11],
-        "2019": data.iloc[:, 11:22],
-        "2020": data.iloc[:, 22:33],
-        "2021": data.iloc[:, 33:43],
-        "2022": data.iloc[:, 43:53],
-    }
-
-    selected_data = year_mapping.get(year)
-    selected_data.columns = [f"Month {i+1}" for i in range(selected_data.shape[1])]
-
-    st.subheader(f"Drug Cases in {year}")
-    st.dataframe(selected_data)
-
-    # Machine Learning
     X = data.iloc[:, :-1]
     y = data.iloc[:, -1]
-
+    
+    # Split Data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
+    
+    # Train Model
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
-
+    
+    # Predictions
     y_pred = model.predict(X_test)
-
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
-
-    st.subheader("Prediction Results")
+    
+    st.subheader("Model Evaluation")
     st.write(f"Mean Squared Error: {mse:.2f}")
     st.write(f"R-Squared Score: {r2:.2f}")
-
-    # Plot Graph
-    st.subheader("Actual vs Predicted Cases")
+    
+    # Future Predictions
+    future_years = [2023 + i for i in range(years_to_predict)]
+    future_predictions = model.predict(np.tile(X.iloc[-1].values, (years_to_predict, 1)))
+    future_df = pd.DataFrame({"Year": future_years, "Predicted Cases": future_predictions})
+    
+    st.subheader("Future Predictions")
+    st.dataframe(future_df)
+    
+    # Plot Predictions
+    st.subheader("Prediction Graph")
     plt.figure(figsize=(10, 6))
-    plt.plot(y_test.values, label="Actual Cases", color='blue')
-    plt.plot(y_pred, label="Predicted Cases", color='red')
-    plt.legend()
-    plt.title("Actual vs Predicted Cases")
-    plt.xlabel("Samples")
+    plt.plot(future_df["Year"], future_df["Predicted Cases"], color='green', marker='o')
+    plt.title("Predicted Cases for Future Years")
+    plt.xlabel("Year")
     plt.ylabel("Cases")
+    plt.grid(True)
     st.pyplot(plt)
 
 st.sidebar.write("Made with ❤️ by AI Student")
