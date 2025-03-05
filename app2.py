@@ -88,4 +88,4 @@ if not df.empty:
     plt.ylabel("Cases")
     st.pyplot(plt)
 
-st.sidebar.write("Made with ❤️ by AI Student")
+st.sidebar.write("Made By DEEPTHINKERS")
