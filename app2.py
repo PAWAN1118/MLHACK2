@@ -1,86 +1,91 @@
+import streamlit as st
 import requests
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
 
-# Load the JSON data from the provided URL
-url = "https://www.data.gov.in/backend/dms/v1/ogdp/resource/download/603189971/json/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJkYXRhLmdvdi5pbiIsImF1ZCI6ImRhdGEuZ292LmluIiwiaWF0IjoxNzQxMTYxNzE3LCJleHAiOjE3NDExNjIwMTcsImRhdGEiOnsibmlkIjoiNjAzMTg5OTcxIn19.0G6wbxOJRrimBOB-OQmMx1rP8TcHXEZqgGGiGzBynqI"
-response = requests.get(url)
-data = response.json()
+url = "https://www.data.gov.in/backend/dms/v1/ogdp/resource/download/603189971/json/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJkYXRhLmdvdi5pbiIsImF1ZCI6ImRhdGEuZ292LmluIiwiaWF0IjoxNzQxMDYzNTIyLCJleHAiOjE3NDEwNjM4MjIsImRhdGEiOnsibmlkIjoiNjAzMTg5OTcxIn19.ikJQgi0GtPlW6WBQs2WshuBHNG18w6Mk04KTY3Nrv0s"
 
-# Check if the request was successful
-if response.status_code == 200:
-    if "fields" in data and "data" in data:
-        # Extract column names from 'fields' key
-        columns = [field["label"] for field in data["fields"]]
-        
-        # Convert 'data' key into a DataFrame
-        df = pd.DataFrame(data["data"], columns=columns)
-
-        print("Data Preview:")
-        print(df.head().to_string(index=False))
-        
-        # Separate yearly data into individual variables
-        df_2018 = df.filter(like='2018')
-        df_2019 = df.filter(like='2019')
-        df_2020 = df.filter(like='2020')
-        df_2021 = df.filter(like='2021')
-        df_2022 = df.filter(like='2022')
-        
-        print("Data for 2018:")
-        print(df_2018.head().to_string(index=False))
-        print("Data for 2019:")
-        print(df_2019.head().to_string(index=False))
-        print("Data for 2020:")
-        print(df_2020.head().to_string(index=False))
-        print("Data for 2021:")
-        print(df_2021.head().to_string(index=False))
-        print("Data for 2022:")
-        print(df_2022.head().to_string(index=False))
-        
-        # Reshape the dataset
-        df_melted = df.melt(id_vars=["Sl. No.", "State/UT"], var_name="Year_DrugType", value_name="Seizure Quantity")
-        df_melted[['Year', 'Drug Type']] = df_melted['Year_DrugType'].str.extract(r'(\d{4}) - (.+)')
-        df_melted.drop(columns=['Year_DrugType'], inplace=True)
-        df_melted.dropna(inplace=True)
-        df_melted['Year'] = df_melted['Year'].astype(int)
-        df_melted['Seizure Quantity'] = pd.to_numeric(df_melted['Seizure Quantity'], errors='coerce')
-        df_melted.dropna(inplace=True)
-        
-        print("Reshaped Data Preview:")
-        print(df_melted.head().to_string(index=False))
-        
-        # Splitting dataset into training and testing sets
-        X = df_melted[['Year']]
-        y = df_melted['Seizure Quantity']
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        
-        # Train a Linear Regression model
-        model = LinearRegression()
-        model.fit(X_train, y_train)
-        
-        # Make predictions
-        y_pred = model.predict(X_test)
-        
-        # Evaluate the model
-        mae = mean_absolute_error(y_test, y_pred)
-        mse = mean_squared_error(y_test, y_pred)
-        print(f"Mean Absolute Error: {mae}")
-        print(f"Mean Squared Error: {mse}")
-        
-        # Plot Actual vs Predicted Values
-        plt.figure(figsize=(10, 5))
-        plt.scatter(y_test, y_pred, color='blue', label='Predicted vs Actual')
-        plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red', linestyle='dashed', label='Ideal Fit')
-        plt.xlabel('Actual Seizure Quantity')
-        plt.ylabel('Predicted Seizure Quantity')
-        plt.title('Actual vs Predicted Drug Seizures')
-        plt.legend()
-        plt.show()
+@st.cache_data
+def load_data():
+    r = requests.get(url)
+    if r.status_code == 200:
+        data = r.json()
+        if 'data' in data and isinstance(data['data'], list):
+            return pd.DataFrame(data['data'])
+        else:
+            st.error("Data format error.")
+            return pd.DataFrame()
     else:
-        print("Error: Unexpected JSON structure.")
-else:
-    print(f"Error: Failed to fetch data from the URL. Status code: {response.status_code}")
-    print(f"Response content: {response.content}")
+        st.error("Failed to fetch data.")
+        return pd.DataFrame()
+
+def preprocess_data(df):
+    data2018 = df.iloc[:, 2:13].replace('-', np.nan).astype(float) # Replace '-' with NaN
+    data2019 = df.iloc[:, 13:24].replace('-', np.nan).astype(float) # Replace '-' with NaN
+    data2020 = df.iloc[:, 24:35].replace('-', np.nan).astype(float) # Replace '-' with NaN
+    data2021 = df.iloc[:, 35:45].replace('-', np.nan).astype(float) # Replace '-' with NaN
+    data2022 = df.iloc[:, 45:55].replace('-', np.nan).astype(float) # Replace '-' with NaN
+    
+    all_years = pd.concat([data2018, data2019, data2020, data2021, data2022], axis=1)
+    all_years.fillna(0, inplace=True)
+    return all_years
+
+
+st.title("Drug Cases Predictor App")
+st.write("This app shows drug cases and predicts future cases using Machine Learning.")
+
+year = st.selectbox("Select Year to View Data", ["2018", "2019", "2020", "2021", "2022"])
+
+df = load_data()
+
+if not df.empty:
+    data = preprocess_data(df)
+    
+    year_mapping = {
+        "2018": data.iloc[:, :11],
+        "2019": data.iloc[:, 11:22],
+        "2020": data.iloc[:, 22:33],
+        "2021": data.iloc[:, 33:43],
+        "2022": data.iloc[:, 43:53],
+    }
+    
+    selected_data = year_mapping.get(year)
+    selected_data.columns = [f"Month {i+1}" for i in range(selected_data.shape[1])]
+
+    st.subheader(f"Drug Cases in {year}")
+    st.dataframe(selected_data)
+
+    # Machine Learning
+    X = data.iloc[:, :-1]
+    y = data.iloc[:, -1]
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    
+    y_pred = model.predict(X_test)
+    
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    
+    st.subheader("Prediction Results")
+    st.write(f"Mean Squared Error: {mse:.2f}")
+    st.write(f"R-Squared Score: {r2:.2f}")
+    
+    # Plot Graph
+    st.subheader("Actual vs Predicted Cases")
+    plt.figure(figsize=(10, 6))
+    plt.plot(y_test.values, label="Actual Cases", color='blue')
+    plt.plot(y_pred, label="Predicted Cases", color='red')
+    plt.legend()
+    plt.title("Actual vs Predicted Cases")
+    plt.xlabel("Samples")
+    plt.ylabel("Cases")
+    st.pyplot(plt)
+
+st.sidebar.write("Made with ❤️ by AI Student")
