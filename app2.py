@@ -4,7 +4,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 # Load the JSON data from the provided URL
-url = "https://www.data.gov.in/backend/dms/v1/ogdp/resource/download/603189971/json/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJkYXRhLmdvdi5pbiIsImF1ZCI6ImRhdGEuZ292LmluIiwiaWF0IjoxNzQxMTYxODAxLCJleHAiOjE3NDExNjIxMDEsImRhdGEiOnsibmlkIjoiNjAzMTg5OTcxIn19.oGVC8crDQlXg9k4qV7KdUSGc_IWYGV7sVx7NxKrXpR8 "
+url = "https://www.data.gov.in/backend/dms/v1/ogdp/resource/download/603189971/json/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJkYXRhLmdvdi5pbiIsImF1ZCI6ImRhdGEuZ292LmluIiwiaWF0IjoxNzQxMTYxNzE3LCJleHAiOjE3NDExNjIwMTcsImRhdGEiOnsibmlkIjoiNjAzMTg5OTcxIn19.0G6wbxOJRrimBOB-OQmMx1rP8TcHXEZqgGGiGzBynqI"
 response = requests.get(url)
 data = response.json()
 
