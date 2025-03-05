@@ -19,41 +19,36 @@ def load_data():
 # Data Loading
 df = load_data()
 
-# Preprocess data
-data2018 = df.iloc[:, 2:13].astype(float)
-data2019 = df.iloc[:, 13:24].astype(float)
-data2020 = df.iloc[:, 24:35].astype(float)
-data2021 = df.iloc[:, 35:45].astype(float)
-data2022 = df.iloc[:, 45:55].astype(float)
+# Check if data is empty
+if df.empty:
+    st.error("Failed to load data.")
+else:
+    # Preprocess data
+    data_years = [df.iloc[:, 2:13], df.iloc[:, 13:24], df.iloc[:, 24:35], df.iloc[:, 35:45], df.iloc[:, 45:55]]
+    data_all = pd.concat([year.astype(float) for year in data_years], axis=1)
+    data_all.fillna(0, inplace=True)
 
-# Concatenate all years
-data_all = pd.concat([data2018, data2019, data2020, data2021, data2022], axis=1)
-data_all.fillna(0, inplace=True)
+    # Create features and target
+    X = data_all.iloc[:, :-1]
+    y = data_all.iloc[:, -1] if data_all.shape[1] > 0 else pd.Series(np.zeros(data_all.shape[0]))
 
-# Create features and target
-X = data_all.iloc[:, :-1]
-y = data_all.iloc[:, -1]
+    # Train model
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
 
-# Train model
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-model = RandomForestRegressor(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+    # Year input
+    selected_year = st.number_input("Enter Year to Predict Cases", min_value=2023, max_value=2035, step=1)
 
-# Year selection
-selected_year = st.selectbox("Select Year to View Data", [2018, 2019, 2020, 2021, 2022])
-future_years = st.slider("Select Future Years to Predict", 1, 10, 3)
-
-if st.button("Predict"):
-    if selected_year == 2022:
-        future_data = data2022.copy()
+    if st.button("Predict"):
+        future_data = data_years[-1].mean().values
+        years_to_predict = selected_year - 2022
         predictions = []
-        for year in range(future_years):
-            pred = model.predict([future_data.values[0]])
+        for year in range(years_to_predict):
+            pred = model.predict([future_data])
             predictions.append(pred[0])
             future_data = np.roll(future_data, -1)
             future_data[-1] = pred[0]
-        st.write(f"Predicted Cases for next {future_years} years:", predictions)
-    else:
-        st.error("Prediction is only available from 2022 onward.")
+        st.write(f"Predicted Cases for {selected_year}: {predictions[-1]}")
 
 st.sidebar.markdown("Made with ❤️ by AI Student")
