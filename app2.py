@@ -35,8 +35,8 @@ else:
     data_all.fillna(0, inplace=True)
 
     # Create features and target
-    X = data_all.iloc[:, :-1]
-    y = data_all.iloc[:, -1] if data_all.shape[1] > 0 else pd.Series(np.zeros(data_all.shape[0]))
+    X = np.arange(2018, 2023).reshape(-1, 1)
+    y = data_all.sum(axis=1)
 
     # Train model
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -47,14 +47,8 @@ else:
     selected_year = st.number_input("Enter Year to Predict Cases", min_value=2023, max_value=2035, step=1)
 
     if st.button("Predict"):
-        future_data = data_years[-1].mean().values
-        years_to_predict = selected_year - 2022
-        predictions = []
-        for year in range(years_to_predict):
-            pred = model.predict([future_data])
-            predictions.append(pred[0])
-            future_data = np.roll(future_data, -1)
-            future_data[-1] = pred[0]
-        st.write(f"Predicted Cases for {selected_year}: {predictions[-1]}")
+        future_year = np.array([[selected_year]])
+        prediction = model.predict(future_year)[0]
+        st.write(f"Predicted Cases for {selected_year}: {prediction:.2f}")
 
 st.sidebar.markdown("Made with ❤️ by AI Student")
