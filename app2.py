@@ -21,13 +21,19 @@ def load_data():
         response.raise_for_status()  # Raise an error for bad status codes
         data = response.json()
 
-        # Check if the JSON structure is as expected
-        if 'data' not in data:
-            st.error("The JSON data does not contain the expected 'data' key.")
+        # Check the structure of the JSON data
+        if isinstance(data, list):
+            # If the JSON data is a list of dictionaries
+            df = pd.DataFrame(data)
+        elif 'records' in data:
+            # If the JSON data contains a 'records' key
+            df = pd.DataFrame(data['records'])
+        elif 'data' in data:
+            # If the JSON data contains a 'data' key
+            df = pd.DataFrame(data['data'])
+        else:
+            st.error("The JSON data does not contain a recognized structure.")
             return None
-
-        # Convert JSON to DataFrame
-        df = pd.DataFrame(data['data'])
 
         # Fill missing values if any
         df.fillna(0, inplace=True)
