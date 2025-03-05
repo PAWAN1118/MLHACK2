@@ -1,65 +1,53 @@
-import streamlit as st
 import requests
 import pandas as pd
-import numpy as np
+import streamlit as st
 import matplotlib.pyplot as plt
 
-# API URL
-url = "https://www.data.gov.in/backend/dms/v1/ogdp/resource/download/603189971/json/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJkYXRhLmdvdi5pbiIsImF1ZCI6ImRhdGEuZ292LmluIiwiaWF0IjoxNzQxMDYzNTIyLCJleHAiOjE3NDEwNjM4MjIsImRhdGEiOnsibmlkIjoiNjAzMTg5OTcxIn19.ikJQgi0GtPlW6WBQs2WshuBHNG18w6Mk04KTY3Nrv0s"
+# Load the JSON data from the provided URL
+url = "https://www.data.gov.in/backend/dms/v1/ogdp/resource/download/603189971/json/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJkYXRhLmdvdi5pbiIsImF1ZCI6ImRhdGEuZ292LmluIiwiaWF0IjoxNzQxMTYxNzE3LCJleHAiOjE3NDExNjIwMTcsImRhdGEiOnsibmlkIjoiNjAzMTg5OTcxIn19.0G6wbxOJRrimBOB-OQmMx1rP8TcHXEZqgGGiGzBynqI"
+response = requests.get(url)
+data = response.json()
 
-@st.cache_data
-def load_data():
-    """Fetch data from API and return DataFrame"""
-    r = requests.get(url)
-    if r.status_code == 200:
-        data = r.json()
-        st.write("API Response Sample:", data)  # Debug: Show API response
-        if 'data' in data and isinstance(data['data'], list):
-            return pd.DataFrame(data['data'])
+# Check if the request was successful
+if response.status_code == 200:
+    if "fields" in data and "data" in data:
+        # Extract column names from 'fields' key
+        columns = [field["label"] for field in data["fields"]]
+        
+        # Convert 'data' key into a DataFrame
+        df = pd.DataFrame(data["data"], columns=columns)
+        
+        # Reshape the dataset
+        df_melted = df.melt(id_vars=["Sl. No.", "State/UT"], var_name="Year_DrugType", value_name="Seizure Quantity")
+        df_melted[['Year', 'Drug Type']] = df_melted['Year_DrugType'].str.extract(r'(\d{4}) - (.+)')
+        df_melted.drop(columns=['Year_DrugType'], inplace=True)
+        df_melted.dropna(inplace=True)
+        df_melted['Year'] = df_melted['Year'].astype(int)
+        df_melted['Seizure Quantity'] = pd.to_numeric(df_melted['Seizure Quantity'], errors='coerce')
+        df_melted.dropna(inplace=True)
+        
+        # Streamlit App
+        st.title("NDPS Seizure Analysis")
+        year_input = st.number_input("Enter Year (2018-2022):", min_value=2018, max_value=2022, step=1)
+        
+        # Filter data based on the selected year
+        filtered_df = df_melted[df_melted['Year'] == year_input]
+        
+        if not filtered_df.empty:
+            st.write(f"Seizure Data for the Year {year_input}")
+            st.dataframe(filtered_df)
+            
+            # Plot the graph
+            st.write("### Seizure Quantity by Drug Type")
+            fig, ax = plt.subplots(figsize=(10, 5))
+            filtered_df.groupby("Drug Type")['Seizure Quantity'].sum().plot(kind='bar', ax=ax, color='skyblue')
+            ax.set_xlabel("Drug Type")
+            ax.set_ylabel("Seizure Quantity")
+            ax.set_title(f"Seizure Quantity by Drug Type in {year_input}")
+            st.pyplot(fig)
         else:
-            st.error("Data format error. Available keys: " + str(data.keys()))
-            return pd.DataFrame()
+            st.write("No data available for the selected year.")
     else:
-        st.error("Failed to fetch data. Status Code: " + str(r.status_code))
-        return pd.DataFrame()
-
-def preprocess_data(df):
-    """Process raw data and handle missing values"""
-    years = [2018, 2019, 2020, 2021, 2022]
-    data_dict = {}
-    
-    for i, year in enumerate(years):
-        start, end = 2 + (i * 11), 2 + ((i + 1) * 11)
-        if end > df.shape[1]:
-            st.error(f"Year {year} data out of range. Columns available: {df.shape[1]}")
-            continue
-        temp_df = df.iloc[:, start:end].replace('-', np.nan).astype(float)
-        temp_df.fillna(temp_df.median(), inplace=True)
-        data_dict[year] = temp_df
-    
-    return data_dict
-
-# Load & preprocess data
-df = load_data()
-if not df.empty:
-    data = preprocess_data(df)
-
-    st.sidebar.title("Controls")
-    year = st.sidebar.selectbox("Select Year to View Data", list(data.keys()))
-    selected_data = data[year]
-    
-    st.title("Drug Cases Data Viewer")
-    st.subheader(f"Drug Cases in {year}")
-    st.dataframe(selected_data)
-    
-    # Visualization using Matplotlib
-    st.subheader(f"Visualization of Drug Cases in {year}")
-    plt.figure(figsize=(10, 5))
-    plt.plot(selected_data.mean(), marker='o', linestyle='-', color='b')
-    plt.xlabel("Months")
-    plt.ylabel("Cases")
-    plt.title(f"Drug Cases Trend in {year}")
-    plt.grid(True)
-    st.pyplot(plt)
-
-st.sidebar.write("Made with ❤️ by AI Student")
+        st.write("Error: Unexpected JSON structure.")
+else:
+    st.write(f"Error: Failed to fetch data from the URL. Status code: {response.status_code}")
